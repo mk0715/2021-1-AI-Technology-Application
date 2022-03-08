@@ -1,0 +1,85 @@
+주제 : 뉴스 기사를 핵심 단어들을 포함하여 요약해주는 프로그램
+데이터 수집 방안 : AI Hub 홈페이지에 문서요약 텍스트 AI 데이터 중 신문데이터 + Few Shot으로 쓸 네이버 뉴스기사 수집(요약은 직접)
+
+피드백 :
+뉴스마다 요약이 있는 곳 있음.(언론사 마다 다름) or
+기사 본문있으면 제목을 생성하는 것을 해도 ㄱㅊ(요약 대신에, 제목생성이 요약이나 다름없음)
+
++ 그 주제마다 분류해서 긍정인지 부정인지 등을 파악(예를 들어 정치 섹션이면 긍정이 많은지 부정이 많은지에 따라 정권의 평가 가능)
+
+다른사람이 말한 것 중 비슷한 주제 -> 수집한 글들의 제목을 요약문으로 가정하고 GPT의 pre-train된 weight를 활용해
+few-shot learning을 통해 수집한 데이터에 맞춰주고 이를 통해 요약생성. 네이버 칼럼, 뉴스기사, 네이버 포스트 등의 글 크롤링.
+
+걍 수업잘들었다는거 보여주면 댐. 데이터 수집이 어려우면 쉬운걸로 쳐하셈.
+
+
+진행 :
+3주차 기타파이프라인에 요약하는거 나와있음.
+6주차 내용
+
+
+
+
+다른 주제: 
+1. ai hub에서 법률 데이터를 상담시킨 ai 법률 상담가 -> ai hub의 법률데이터 활용, 네이버 지식인의 무료법률상담 크롤링
+2. 음식레시피 생성하기 -> 식품안전나라 공공데이터(https://www.foodsafetykorea.go.kr/api/datasetList.do?cl_cd=API_SRT03&menu_no=17881&menu_grp=MENU_GRP31) 
+에서 조리식품의 레시피 DB를 학습시켜 식품영양성분DB에 있는 
+식품이름에 대한 레시피 생성하기. 추가적으로 성분에 대한 긍, 부정 분류나 성분 등에 따라 분류하기
+
+
+http://nlp.kookmin.ac.kr/kcc/
+
+https://github.com/songys/AwesomeKorean_Data
+
+
+
+
+
+
+
+
+서론 : 요즘 사람들의 집중력이 굉장히 짧음(Average human attention span 그림 참조). 
+뉴스기사를 길다고 안읽는 사람도 부지기수. 그렇기에 인터넷에서 많이 하는 3줄 요약 처럼 핵심내용만을 요약하여
+한눈에 보여주는 것이 있으면 읽는 사람도 빠르고 간편하게 핵심을 파악할 수 있음.
+
+뉴스 데이터 출처 : https://www.kaggle.com/snapcrack/all-the-news
+-> kaggle에서 competition진행한 데이터. 143000개 중 50000개 짜리 데이터 선정. 
+발행사는 Breitbart, CNN, New York Times, Business Insider, Atlantic 5개 발행사이고, 
+기사는 2011~2017년의 기사가 존재.
+
+전처리: 길이가 너무 긴 문장들 제외 (3000을 기준으로), 5%만 할까?(이건 모르겠음)
+ + T5 transformer에서 model과 tokenizer을 t5-base로 사용한것.
+
+모형 : summarization parameter 찾아보기(min_length, max_length 보통 설정)
+https://www.thepythoncode.com/article/text-summarization-using-huggingface-transformers-python 참고해보기
+https://huggingface.co/transformers/task_summary.html
+T5 transformer 사용
+
+학습 및 미세 조정: 
+https://huggingface.co/transformers/task_summary.html (여기 summary 부분)
+pipeline summarization tuning 으로 찾기.
+https://www.thepythoncode.com/article/text-summarization-using-huggingface-transformers-python
+-> 여기에 따르면 length_penalty는 숫자가 커질 수록 나오는 요약이 길이가 길어짐. so 제목에 가깝게 하기 위해 줄여봄. 1.0은 penalty가 없는것.
+num_beams는 beam 탐색 할때의 수인데 확률이 높은 단어를 일정 수로 유지하면서 탐색하기에 확률이 높은 단어가 많으면 더 좋지않을까 생각하여 늘림.
+
+
+평가 : Rouge-score로 측정 - 
+
+코드 참고 - https://pypi.org/project/rouge-score/
+https://pypi.org/project/rouge/
+
+https://huffon.github.io/2019/12/07/rouge/ 설명 여기를 참고했음.
+
+https://ai-information.blogspot.com/2019/04/text-generation-evaluation-06-rouge.html -> 에 따르면
+BLEU는 precision 기준으로 평가하는 것이고 Rouge-score은 recall 부분도 같이 보면서 평가하는 것이다. 
+
+https://bab2min.tistory.com/625 -> 에 따르면 rouge-1에서는 1-gram 즉, 단어 단위로 두 요약문을 비교함.
+rouge-L은 최장 공통 부분 수열을 가지고 평가하는데, 즉 연속된 단어열 중 가장 길이가 긴 것으로 비교함.
+
+결과물이 precision, recall, fmeasure(f1 score)이 나오는데 이중 f1 score이 precision과 recall을 둘다 고려하여
+두개의 조화평균을 한것이므로 f1score로 성능이 우수한지 비교해보았다.
+
+
+
+
+pipeline, T5모델 구현, 미세조정 후 등의 결과를 제목이랑 비교하여 평가하여 성능 향상이 있는지 확인.
